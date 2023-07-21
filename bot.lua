@@ -157,7 +157,8 @@ end
 
 local function TakeFruit(user, fruit, amnt)
     local v
-    for i = 1, #user.fruits do
+    local i = 1
+    while amnt > 0 and i <= #user.fruits do
         if amnt == 0 then
             break
         end
@@ -166,6 +167,8 @@ local function TakeFruit(user, fruit, amnt)
         if v.id == fruit then
             table.remove(user.fruits, i)
             amnt = amnt - 1
+        else
+            i = i + 1
         end
     end
 end
