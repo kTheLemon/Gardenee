@@ -1,1 +1,1 @@
-token
+return "THETOKEN"
