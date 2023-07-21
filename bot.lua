@@ -156,12 +156,13 @@ local function Hexify(clr)
 end
 
 local function TakeFruit(user, fruit, amnt)
+    local v
     for i = 1, #user.fruits do
         if amnt == 0 then
             break
         end
 
-        local v = user.fruits[i]
+        v = user.fruits[i]
         if v.id == fruit then
             table.remove(user.fruits, i)
             amnt = amnt - 1
@@ -180,8 +181,9 @@ local function UpgradeFruit(user, fruitid)
     if user.fruits then
         if (fruitid ~= "firedragonfruit") and (fruitid ~= "waterdragonfruit") and (fruitid ~= "dragonfruit") then
             local amnt = 0
+            local v
             for i = 1, #user.fruits do
-                local v = user.fruits[i]
+                v = user.fruits[i]
                 if v.id == fruitid then
                     amnt = amnt + 1
                 end
@@ -214,8 +216,9 @@ local function UpgradeFruit(user, fruitid)
             local famnt = 0
             local wamnt = 0
             local damnt = 0
+            local v
             for i = 1, #user.fruits do
-                local v = user.fruits[i]
+                v = user.fruits[i]
                 if v.id == "firedragonfruit" then
                     famnt = famnt + 1
                 elseif v.id == "waterdragonfruit" then
@@ -253,8 +256,9 @@ end
 local function UpgradeAllFruit(user, fruitid)
     if user.fruits then
         local amnt = 0
+        local v
         for i = 1, #user.fruits do
-            local v = user.fruits[i]
+            v = user.fruits[i]
             if v.id == fruitid then
                 amnt = amnt + 1
             end
