@@ -5,10 +5,11 @@ local tools = dcmd.util.tools()
 local client = discordia.Client():useApplicationCommands()
 local GON = require("lib.GON")
 require("lib.rendering")
+local datalocation = "data/"
 
 UserSettings = {}
 CurrentInput = {}
-Data = {}
+Users = {}
 
 local emojis = {
     apple = "<:apple:1121524962025537648>",
@@ -134,20 +135,18 @@ local function NewFruit(fruitid)
     return { id = fruitid, time = os.time() + 2000 * tiers[fruitid] }
 end
 
-
-local file = io.open("data.gon", "r")
-if not file then
-    file = io.open("data.gon", "w")
-    file:write(GON.encode({}) .. "\n")
+for user in io.popen([[dir "data" /b]]):lines() do
+    local file = io.open("data/" .. user, "r")
+    local data = file:read()
     file:close()
-else
-    Data = GON.decode(file:read())
-    file:close()
+    local user = GON.decode(data)
+    Users[user.id] = user
 end
 
-local function SaveData()
-    local file = io.open("data.gon", "w")
-    file:write(GON.encode(Data) .. "\n")
+local function SaveUser(user)
+    local gon = GON.encode(user) -- hopefully prevent data loss
+    local file = io.open(datalocation .. user.id .. ".gon", "w")
+    file:write(gon)
     file:close()
 end
 
@@ -181,83 +180,7 @@ local function GiveFruit(user, fruit, amnt)
 end
 
 local function UpgradeFruit(user, fruitid)
-    if user.fruits then
-        if (fruitid ~= "firedragonfruit") and (fruitid ~= "waterdragonfruit") and (fruitid ~= "dragonfruit") then
-            local amnt = 0
-            local v
-            for i = 1, #user.fruits do
-                v = user.fruits[i]
-                if v.id == fruitid then
-                    amnt = amnt + 1
-                end
-            end
-            if upgrades[fruitid] then
-                if amnt >= upgrades[fruitid].amnt then
-                    TakeFruit(user, fruitid, upgrades[fruitid].amnt)
-                    GiveFruit(user, NewFruit(upgrades[fruitid].id), 1)
-                    return "Your **" ..
-                        upgrades[fruitid].amnt .. emojis[fruitid] ..
-                        "** have been upgraded to **1** " .. emojis[upgrades[fruitid].id] .. "!"
-                end
-                return "You need **" ..
-                    upgrades[fruitid].amnt - amnt .. " more " .. emojis[fruitid] .. "** to upgrade to the next tier!"
-            elseif emojis[fruitid] then
-                if fruitid ~= "pineapple" then
-                    return "This " ..
-                        emojis[fruitid] .. " fruit currently can't be upgraded!"
-                elseif amnt == 1 then
-                    return "This " ..
-                        emojis[fruitid] .. " fruit currently can't be upgraded! Now go touch some grass :)"
-                elseif amnt >= 2 then
-                    return
-                    "Why do you have so many? You're never gonna need this many why are you even trying to merge them how does that make sense??"
-                end
-            else
-                return "This fruit doesn't exist!"
-            end
-        else
-            local famnt = 0
-            local wamnt = 0
-            local damnt = 0
-            local v
-            for i = 1, #user.fruits do
-                v = user.fruits[i]
-                if v.id == "firedragonfruit" then
-                    famnt = famnt + 1
-                elseif v.id == "waterdragonfruit" then
-                    wamnt = wamnt + 1
-                elseif v.id == "dragonfruit" then
-                    damnt = damnt + 1
-                end
-            end
-            if (famnt < 10) or (wamnt < 10) or (damnt < 10) then
-                return "You need **" ..
-                    10 - famnt ..
-                    " more** " ..
-                    emojis["firedragonfruit"] ..
-                    ", **" ..
-                    10 - wamnt ..
-                    " more** " ..
-                    emojis["waterdragonfruit"] ..
-                    " and **" .. 10 - damnt .. " more** " .. emojis["dragonfruit"] .. " to upgrade to the next tier!"
-            end
-            TakeFruit(user, "firedragonfruit", 10)
-            TakeFruit(user, "waterdragonfruit", 10)
-            TakeFruit(user, "dragonfruit", 10)
-            GiveFruit(user, NewFruit("pineapple"), 1)
-            return "Your **10**" ..
-                emojis["firedragonfruit"] ..
-                ", **10**" ..
-                emojis["waterdragonfruit"] ..
-                " and **10**" ..
-                emojis["dragonfruit"] .. " have been merged into **1**" .. emojis["pineapple"] .. "!"
-        end
-    end
-    return "You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!"
-end
-
-local function UpgradeAllFruit(user, fruitid)
-    if user.fruits then
+    if (fruitid ~= "firedragonfruit") and (fruitid ~= "waterdragonfruit") and (fruitid ~= "dragonfruit") then
         local amnt = 0
         local v
         for i = 1, #user.fruits do
@@ -267,25 +190,97 @@ local function UpgradeAllFruit(user, fruitid)
             end
         end
         if upgrades[fruitid] then
-            local newamnt = math.floor(amnt / upgrades[fruitid].amnt)
-            local oldamnt = newamnt * upgrades[fruitid].amnt
-            TakeFruit(user, fruitid, oldamnt)
-            GiveFruit(user, NewFruit(upgrades[fruitid].id), newamnt)
             if amnt >= upgrades[fruitid].amnt then
+                TakeFruit(user, fruitid, upgrades[fruitid].amnt)
+                GiveFruit(user, NewFruit(upgrades[fruitid].id), 1)
                 return "Your **" ..
-                    oldamnt .. emojis[fruitid] ..
-                    "** have been upgraded to **" ..
-                    newamnt .. "**" .. emojis[upgrades[fruitid].id] .. "!"
-            else
-                return "You need **" ..
-                    upgrades[fruitid].amnt - amnt ..
-                    " more " .. emojis[fruitid] .. "** to be able to upgrade to the next tier!"
+                    upgrades[fruitid].amnt .. emojis[fruitid] ..
+                    "** have been upgraded to **1** " .. emojis[upgrades[fruitid].id] .. "!"
             end
+            return "You need **" ..
+                upgrades[fruitid].amnt - amnt .. " more " .. emojis[fruitid] .. "** to upgrade to the next tier!"
         elseif emojis[fruitid] then
-            return "This fruit currently can't be upgraded!"
+            if fruitid ~= "pineapple" then
+                return "This " ..
+                    emojis[fruitid] .. " fruit currently can't be upgraded!"
+            elseif amnt == 1 then
+                return "This " ..
+                    emojis[fruitid] .. " fruit currently can't be upgraded! Now go touch some grass :)"
+            elseif amnt >= 2 then
+                return
+                "Why do you have so many? You're never gonna need this many why are you even trying to merge them how does that make sense??"
+            end
+        else
+            return "This fruit doesn't exist!"
+        end
+    else
+        local famnt = 0
+        local wamnt = 0
+        local damnt = 0
+        local v
+        for i = 1, #user.fruits do
+            v = user.fruits[i]
+            if v.id == "firedragonfruit" then
+                famnt = famnt + 1
+            elseif v.id == "waterdragonfruit" then
+                wamnt = wamnt + 1
+            elseif v.id == "dragonfruit" then
+                damnt = damnt + 1
+            end
+        end
+        if (famnt < 10) or (wamnt < 10) or (damnt < 10) then
+            return "You need **" ..
+                10 - famnt ..
+                " more** " ..
+                emojis["firedragonfruit"] ..
+                ", **" ..
+                10 - wamnt ..
+                " more** " ..
+                emojis["waterdragonfruit"] ..
+                " and **" .. 10 - damnt .. " more** " .. emojis["dragonfruit"] .. " to upgrade to the next tier!"
+        end
+        TakeFruit(user, "firedragonfruit", 10)
+        TakeFruit(user, "waterdragonfruit", 10)
+        TakeFruit(user, "dragonfruit", 10)
+        GiveFruit(user, NewFruit("pineapple"), 1)
+        return "Your **10**" ..
+            emojis["firedragonfruit"] ..
+            ", **10**" ..
+            emojis["waterdragonfruit"] ..
+            " and **10**" ..
+            emojis["dragonfruit"] .. " have been merged into **1**" .. emojis["pineapple"] .. "!"
+    end
+end
+
+local function UpgradeAllFruit(user, fruitid)
+    local amnt = 0
+    local v
+    for i = 1, #user.fruits do
+        v = user.fruits[i]
+        if v.id == fruitid then
+            amnt = amnt + 1
         end
     end
-    return "You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!"
+    if upgrades[fruitid] then
+        local newamnt = math.floor(amnt / upgrades[fruitid].amnt)
+        local oldamnt = newamnt * upgrades[fruitid].amnt
+        TakeFruit(user, fruitid, oldamnt)
+        GiveFruit(user, NewFruit(upgrades[fruitid].id), newamnt)
+        if amnt >= upgrades[fruitid].amnt then
+            return "Your **" ..
+                oldamnt .. emojis[fruitid] ..
+                "** have been upgraded to **" ..
+                newamnt .. "**" .. emojis[upgrades[fruitid].id] .. "!"
+        else
+            return "You need **" ..
+                upgrades[fruitid].amnt - amnt ..
+                " more " .. emojis[fruitid] .. "** to be able to upgrade to the next tier!"
+        end
+    elseif emojis[fruitid] then
+        return "This fruit currently can't be upgraded!"
+    else
+        return "This fruit doesn't exist!"
+    end
 end
 
 local function IsFruitReady(fruit)
@@ -313,20 +308,16 @@ end
 
 local function UpgradeAllFruitAll(user)
     local id = {}
-    if user.fruits then
-        for _, w in ipairs(user.fruits) do
-            if not id[w.id] then
-                id[w.id] = true
-                UpgradeAllFruit(user, w.id) -- todo
-            end
+    for _, w in ipairs(user.fruits) do
+        if not id[w.id] then
+            id[w.id] = true
+            UpgradeAllFruit(user, w.id)
         end
-        return "Command has been ran!"
     end
-    return "You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!"
+    return "Command has been ran!"
 end
 
 local function CalculateFruitLoot(fruitid)
-    math.randomseed(os.time())
     local out = {}
     if fruitid ~= "fig" and fruitid ~= "blueberry" then
         for i, v in pairs(tiers) do
@@ -349,45 +340,37 @@ local function CalculateFruitLoot(fruitid)
     return out
 end
 
-local function Harvest(userid)
-    local user = Data[userid]
-    if user then
-        if user.fruits then
-            local outmsg = "All fruit harvested! You got:"
-            local fruitamnt = {}
-            local fr = false
-            for i = 1, #user.fruits do
-                if IsFruitReady(user.fruits[i]) then
-                    fr = true
-                    user.fruits[i].time = os.time() + 2000 * tiers[user.fruits[i].id]
-                    local v
-                    for j = 1, #CalculateFruitLoot(user.fruits[i].id) do
-                        v = CalculateFruitLoot(user.fruits[i].id)[j]
-                        GiveFruit(user, v)
-                        fruitamnt[v.id] = (fruitamnt[v.id] or 0) + 1
-                    end
-                end
+local function Harvest(user)
+    local outmsg = "All fruit harvested! You got:"
+    local fruitamnt = {}
+    local fr = false
+    for i = 1, #user.fruits do
+        if IsFruitReady(user.fruits[i]) then
+            fr = true
+            user.fruits[i].time = os.time() + 2000 * tiers[user.fruits[i].id]
+            local loot = CalculateFruitLoot(user.fruits[i].id)
+            local v
+            for j = 1, #loot do
+                v = loot[j]
+                GiveFruit(user, v)
+                fruitamnt[v.id] = (fruitamnt[v.id] or 0) + 1
             end
-            SaveData()
-            if not fr then
-                local lowtwb = ""
-                for i = 1, #user.fruits do
-                    lowtwb = lowtwb ..
-                        emojis[user.fruits[i].id] ..
-                        "<t:" .. user.fruits[i].time .. ":R>\n"
-                end
-                outmsg = "None of your fruit are ready to harvest. Here's when they will be:\n" .. lowtwb
-            else
-                for k, v in pairs(fruitamnt) do
-                    outmsg = outmsg .. "\n**" .. tostring(v) .. "** " .. emojis[k]
-                end
-            end
-            return outmsg
         end
-        return "You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!"
-    else
-        return "You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!"
     end
+    if not fr then
+        local lowtwb = ""
+        for i = 1, #user.fruits do
+            lowtwb = lowtwb ..
+                emojis[user.fruits[i].id] ..
+                "<t:" .. user.fruits[i].time .. ":R>\n"
+        end
+        outmsg = "None of your fruit are ready to harvest. Here's when they will be:\n" .. lowtwb
+    else
+        for k, v in pairs(fruitamnt) do
+            outmsg = outmsg .. "\n**" .. tostring(v) .. "** " .. emojis[k]
+        end
+    end
+    return outmsg, fr
 end
 
 local function InvToString(user)
@@ -483,81 +466,108 @@ end)
 
 client:on("slashCommand", function(ia, cmd, args)
     print(cmd.name)
+    local userid = ia.member.user.id
     if cmd.name == "claim" then
-        if not Data[ia.member.user.id] then
-            Data[ia.member.user.id] = {}
-            SaveData()
+        if not Users[userid] then
+            Users[userid] = {
+                id = userid,
+                fruits = {},
+                hasstarter = false,
+            }
+            SaveUser(Users[userid])
             ia:reply("Your garden has been claimed!")
         else
             ia:reply("You already have a garden, pick a starter fruit by using `/starter`!")
         end
     elseif cmd.name == "starter" then
-        local user = Data[ia.member.user.id]
+        local user = Users[userid]
         if not user then
-            ia:reply(
-                "Before picking a starter fruit, you have to claim a garden using `/claim`!")
+            ia:reply("Before picking a starter fruit, you have to claim a garden using `/claim`!")
             return
         end
-        if user.fruits == nil then
+        if not user.hasstarter then
             user.fruits = {}
             GiveFruit(user, NewFruit(args.fruit))
-            SaveData()
+            user.hasstarter = true
+            SaveUser(user)
             ia:reply("You've chosen " ..
                 emojis[args.fruit] .. " **" .. names[args.fruit] .. "** as your starter fruit. Have fun!")
         else
             ia:reply("You already picked. No more starter fruit!")
         end
     elseif cmd.name == "harvest" then
-        ia:reply(Harvest(ia.member.user.id))
-    elseif cmd.name == "merge" then
-        local user = Data[ia.member.user.id]
+        local user = Users[userid]
         if user then
-            ia:reply(UpgradeFruit(user))
-            SaveData()
+            if user.hasstarter then
+                local result, shouldSave = Harvest(user)
+                if shouldSave then SaveUser(user) end
+                ia:reply(result)
+            else
+                ia:reply("You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!")
+            end
+        else
+            ia:reply("You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!")
+        end
+
+    elseif cmd.name == "merge" then
+        local user = Users[userid]
+        if user then
+            if user.hasstarter then
+                local result = UpgradeFruit(user, args.fruit)
+                SaveUser(user)
+                ia:reply(result)
+            else
+                ia:reply("You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!")
+            end
         else
             ia:reply("You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!")
         end
     elseif cmd.name == "mergeall" then
-        local user = Data[ia.member.user.id]
+        local user = Users[userid]
         if user then
-            ia:reply(UpgradeAllFruit(user, args.fruit))
-            SaveData()
+            if user.hasstarter then
+                local result = UpgradeAllFruit(user, args.fruit)
+                SaveUser(user)
+                ia:reply(result)
+            else
+                ia:reply("You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!")
+            end
         else
             ia:reply("You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!")
         end
     elseif cmd.name == "inventory" then
-        local userid = ia.member.user.id
         if args then
             userid = ia.guild:getMember(args.username)
         end
-        local user = Data[userid]
+        local user = Users[userid]
         if user then
-            if user.fruits then
-                -- ia:reply(InvToString(userid))
-                ia:reply
-                {
-                    embed = {
-                        title = ia.guild:getMember(userid).user.name .. "'s Inventory:",
-                        fields = InvToString(user),
-                        footer = {
-                            text = "Total fruit: " .. #user.fruits
-                        },
-                        color = Hexify(AverageFruitColor(user.fruits)) -- hex color code
-                    }
+            ia:reply {
+                embed = {
+                    title = ia.guild:getMember(userid).user.name .. "'s Inventory:",
+                    fields = InvToString(user),
+                    footer = {
+                        text = "Total fruit: " .. #user.fruits
+                    },
+                    color = Hexify(AverageFruitColor(user.fruits)) -- hex color code
                 }
-            end
+            }
         end
     elseif cmd.name == "reset" then
-        Data[ia.member.user.id] = nil
-        SaveData()
+        table.remove(Users, userid)
+        os.remove(datalocation .. userid .. ".gon")
         ia:reply("Your data has been reset. Please re-claim a garden.")
     elseif cmd.name == "supermerge" then
-        local user = Data[ia.member.user.id]
+        local user = Users[userid]
         if user then
-            ia:reply(UpgradeAllFruitAll(user))
-            SaveData()
+            if user.hasstarter then
+                local result = UpgradeAllFruitAll(user)
+                SaveUser()
+                ia:reply(result)
+            else
+                ia:reply("You don't have a starter fruit yet, so there's nothing to harvest. use `/starter` to get a starter fruit!")
+            end
         else
-            return "You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!"
+            ia:reply("You don't have a garden yet, so you don't have any fruit. Use `/claim` to claim a garden!")
         end
     end
 end)
